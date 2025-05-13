@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+    <div class="container mt-5">
+        <!-- Barra de Navegación Horizontal -->
+        <nav class="nav nav-pills nav-fill mb-4">
+            <a class="nav-link active" id="nav-padres-tab" data-bs-toggle="tab" href="#nav-padres">Padres</a>
+            <a class="nav-link" id="nav-usuarios-tab" data-bs-toggle="tab" href="#nav-usuarios">Usuarios</a>
+            <a class="nav-link" id="nav-estudiantes-tab" data-bs-toggle="tab" href="#nav-estudiantes">Estudiantes</a>
+            <a class="nav-link" id="nav-cursos-tab" data-bs-toggle="tab" href="#nav-cursos">Cursos</a>
+            <button id="logout" class="btn btn-danger ms-3">Logout</button>
+        </nav>
+
+        <!-- Contenido de las Secciones -->
+        <div class="tab-content">
+            <!-- Sección de Padres -->
+            <div class="tab-pane fade show active" id="nav-padres">
+                <h2>Padres</h2>
+                <ul id="Padres" class="list-group"></ul>
+            </div>
+
+            <!-- Sección de Usuarios -->
+            <div class="tab-pane fade" id="nav-usuarios">
+                <h2>Usuarios</h2>
+                <ul id="clientUsers" class="list-group"></ul>
+            </div>
+
+            <!-- Sección de Estudiantes -->
+            <div class="tab-pane fade" id="nav-estudiantes">
+                <h2>Estudiantes</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Curso</th>
+                            <th>Nivel</th>
+                            <th>Paralelo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="estudiantesUser"></tbody>
+                </table>
+            </div>
+
+            <!-- Sección de Cursos -->
+            <div class="tab-pane fade" id="nav-cursos">
+                <h2>Cursos</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>nivel</th>
+
+
+                            <th>Paralelo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cursosUser"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar el QR -->
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrModalLabel">Código QR de Pago</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="qrcode"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (opcional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        const logout = document.querySelector('#logout');
+        const Padres = document.querySelector('#Padres');
+        const clientUsers = document.querySelector('#clientUsers');
+        const ListEstudiantes = document.querySelector('#estudiantesUser');
+        const ListCursos = document.querySelector('#cursosUser');
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            window.location.href = "/login";
+        }
+
+        logout.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = "/login";
+        });
+
+        const getUsers = async () => {
+            try {
+                const { data } = await axios.get('/api/v1/users/', {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+                const { msg: users } = data;
+                Padres.textContent = "";
+                clientUsers.textContent = "";
+
+                users.forEach(user => {
+                    if (user.role_id === 1) return;
+
+                    const li = document.createElement('li');
+                    li.className = "list-group-item d-flex justify-content-between align-items-center";
+                    li.textContent = user.username;
+
+                    if (user.role_id === 3) {
+                        const button = document.createElement('button');
+                        button.textContent = "Cambiar el rol a padre";
+                        button.className = "btn btn-sm btn-warning ms-3";
+
+                        button.addEventListener('click', async () => {
+                            if (!confirm('¿Seguro que quiere cambiar el rol?')) {
+                                return;
+                            }
+
+                            try {
+                                const { data } = await axios.put(`/api/v1/users/update-role-vet/${user.uid}`, {}, {
+                                    headers: {
+                                        Authorization: `Bearer ${token}`
+                                    }
+                                });
+                                getUsers();
+                                console.log(data);
+                            } catch (error) {
+                                console.log(error);
+                            }
+                        });
+
+                        li.appendChild(button);
+                        clientUsers.appendChild(li);
+
+                    } else if (user.role_id === 2) {
+                        const buttonc = document.createElement('button');
+                        buttonc.textContent = "Cambiar el rol a usuario";
+                        buttonc.className = "btn btn-sm btn-primary ms-3";
+
+                        buttonc.addEventListener('click', async () => {
+                            if (!confirm('¿Seguro que quiere cambiar el rol?')) {
+                                return;
+                            }
+
+                            try {
+                                const { data } = await axios.put(`/api/v1/users/update-role-client/${user.uid}`, {}, {
+                                    headers: {
+                                        Authorization: `Bearer ${token}`
+                                    }
+                                });
+                                getUsers();
+                                console.log(data);
+                            } catch (error) {
+                                console.log(error);
+                            }
+                        });
+
+                        li.appendChild(buttonc);
+                        Padres.appendChild(li);
+                    }
+                });
+            } catch (error) {
+                console.log(error);
+            }
+        };
+        getUsers();
+
+        const getEstudiante = async () => {
+            try {
+                const { data } = await axios.get('/api/v1/student/estudiante', {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                const { msg: estudiantes } = data;
+                ListEstudiantes.textContent = "";
+
+                estudiantes.forEach(estudiante => {
+                    const row = document.createElement('tr');
+
+                    const nombre = document.createElement('td');
+                    nombre.textContent = estudiante.nombre_estudiante;
+
+                    const apellido = document.createElement('td');
+                    apellido.textContent = estudiante.apellido_estudiante;
+
+                    const curso = document.createElement('td');
+                    curso.textContent = estudiante.nombre_curso;
+
+                    const nivel = document.createElement('td');
+                    nivel.textContent = estudiante.nivel;
+
+                    const paralelo = document.createElement('td');
+                    paralelo.textContent = estudiante.nombre_paralelo;
+
+                    const acciones = document.createElement('td');
+                    const buttonEditar = document.createElement('button');
+                    buttonEditar.textContent = 'Editar';
+                    buttonEditar.className = "btn btn-sm btn-secondary me-2";
+                    buttonEditar.addEventListener('click', () => {
+                        // Lógica para editar estudiante
+                    });
+
+                    const buttonQR = document.createElement('button');
+                    buttonQR.textContent = 'Generar QR';
+                    buttonQR.className = "btn btn-sm btn-primary";
+                    buttonQR.addEventListener('click', () => {
+                        generarQR(estudiante);
+                    });
+
+                    acciones.appendChild(buttonEditar);
+                    acciones.appendChild(buttonQR);
+                    row.appendChild(nombre);
+                    row.appendChild(apellido);
+                    row.appendChild(curso);
+                    row.appendChild(nivel);
+                    row.appendChild(paralelo);
+                    row.appendChild(acciones);
+
+                    ListEstudiantes.appendChild(row);
+                });
+            } catch (error) {
+                console.log(error);
+            }
+        };
+        getEstudiante();
+
+        // Función para generar el código QR
+        function generarQR(estudiante) {
+            const pagoInfo = {
+                nombre: estudiante.nombre_estudiante,
+                apellido: estudiante.apellido_estudiante,
+                curso: estudiante.nombre_curso,
+                nivel: estudiante.nivel,
+                paralelo: estudiante.nombre_paralelo,
+                monto: 100, // Ejemplo de monto a pagar
+                referencia: '123456' // Ejemplo de número de referencia
+            };
+
+            const pagoString = JSON.stringify(pagoInfo);
+
+            // Limpiar el div donde se generará el QR
+            document.getElementById("qrcode").innerHTML = "";
+
+            // Generar el QR
+            new QRCode(document.getElementById("qrcode"), {
+                text: pagoString,
+                width: 256,
+                height: 256
+            });
+
+            // Mostrar el modal con el QR
+            const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+            qrModal.show();
+        }
+
+
+        const getCursos = async () => {
+            try {
+                const { data } = await axios.get('/api/v1/student/allcurso', {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                const { msg: cursos } = data;
+                ListCursos.textContent = "";
+
+                cursos.forEach(curso => {
+                    const row = document.createElement('tr');
+                    const nombreCurso = document.createElement('td');
+                    nombreCurso.textContent = curso.nombre_curso;
+                    const nivelCurso = document.createElement('td');
+                    nivelCurso.textContent = curso.nivel;
+                    const paraleloCurso = document.createElement('td');
+                    paraleloCurso.textContent = curso.nombre_paralelo;
+                    const acciones = document.createElement('td');
+                    const buttonEditar = document.createElement('button');
+                    buttonEditar.textContent = 'Editar';
+                    buttonEditar.className = "btn btn-sm btn-secondary me-2";
+                    buttonEditar.addEventListener('click', () => {
+                        // Lógica para editar cursos
+                    });
+                    acciones.appendChild(buttonEditar);
+                    row.appendChild(nombreCurso);
+                    row.appendChild(nivelCurso);
+                    row.appendChild(paraleloCurso);
+
+                    row.appendChild(acciones);
+
+                    ListCursos.appendChild(row);
+                });
+            } catch (error) {
+                console.log(error);
+            }
+        };
+        getCursos();
+    </script>
+</body>
+
+</html>
